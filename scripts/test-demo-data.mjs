@@ -59,5 +59,24 @@ console.log(`  totals: claimed ₹${sum.claimed}, admissible ₹${sum.adm}, paid
 await db.exec(demo);
 const again = await one(`select count(*)::int b from hospital_bills`);
 ok(again.b === 36, 'Running it a second time changes nothing');
+
+console.log('Demo notification checks');
+const notes = readFileSync('supabase/demo/demo-notifications.sql', 'utf8');
+try { await db.exec(notes); } catch (e) { console.error('DEMO NOTIFICATIONS FAILED:', e.message, e.where ?? ''); process.exit(1); }
+const nn = await one(`select count(*)::int n, count(*) filter (where email_status <> 'SKIPPED')::int not_skipped,
+  count(distinct user_id)::int people, count(*) filter (where details ->> 'your_side' = 'raised_by')::int by_side,
+  count(*) filter (where details ->> 'your_side' = 'raised_to')::int to_side from notifications`);
+console.log('  notifications:', JSON.stringify(nn));
+ok(nn.n > 100 && nn.not_skipped === 0, `${nn.n} past notices created, none will be emailed`);
+ok(nn.by_side > 0 && nn.to_side > 0 && nn.people === 10, 'Both sides covered: 4 AMOs, 5 hospital desks and Finance (Management is never a party)');
+const rajNotes = await one(`select string_agg(u.login_id || ':' || (n.details ->> 'your_side'), ' ' order by u.login_id) who
+  from notifications n join users u on u.id = n.user_id where n.details ->> 'referral' = 'MCL/REF/2026/001'`);
+ok(rajNotes.who === 'abc.billing:raised_by dr.sharma:raised_to', `Rajesh Kumar bill: ${rajNotes.who}`);
+const paid = await one(`select string_agg(distinct n.event, ',' order by n.event) ev from notifications n
+  join hospital_bills b on b.tracking_no = n.details ->> 'reference' where b.status = 'PAYMENT_COMPLETED'`);
+ok(paid.ev === 'BILL_SUBMITTED,FINANCIALLY_APPROVED,FORWARDED_TO_FINANCE,PAYMENT_COMPLETED,PAYMENT_PROCESSED,VERIFIED_BILL_SENT',
+   'Paid bills show their full history: submitted → verified → forwarded → approved → processed → paid');
+await db.exec(notes);
+ok((await one('select count(*)::int n from notifications')).n === nn.n, 'Loading notices twice changes nothing');
 console.log(failed ? `${failed} check(s) failed` : 'All demo data checks passed');
 process.exit(failed ? 1 : 0);

@@ -303,6 +303,14 @@ export async function financeAction(_: ActionResult, fd: FormData): Promise<Acti
 }
 
 // =============================================================== NOTIFICATIONS
+export async function markRead(fd: FormData) {
+  const u = await actionUser();
+  const sb = await supabaseServer();
+  await sb.from('notifications').update({ read_at: new Date().toISOString() })
+    .eq('id', String(fd.get('id') ?? '')).eq('user_id', u.id);
+  revalidatePath('/', 'layout');
+}
+
 export async function markAllRead() {
   const u = await actionUser();
   const sb = await supabaseServer();

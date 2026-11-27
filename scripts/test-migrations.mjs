@@ -242,6 +242,11 @@ ok((await as(U.hosp2, () => q('select * from hospital_bills'))).rows.length === 
 ok((await as(U.mgmt, () => q('select * from hospital_bills'))).rows.length === 2, 'Management sees all bills (read-only)');
 await expectError('Management cannot modify rate master', () => as(U.mgmt, () => q(`insert into cghs_rate_master (version_id, code, name, category, base_rate)
   values ('40000000-0000-0000-0000-000000000001', 'X', 'X', 'PACKAGE', 1)`)), /row-level security/);
+const totalNotes = (await one('select count(*)::int n from notifications')).n;
+ok((await as(U.admin, () => q('select count(*)::int n from notifications'))).rows[0].n === totalNotes, `Admin monitor view sees all ${totalNotes} notifications`);
+const hospNotes = (await as(U.hosp, () => q('select distinct user_id from notifications'))).rows;
+ok(hospNotes.length === 1 && hospNotes[0].user_id === U.hosp, 'Hospital user sees only its own notifications');
+ok((await as(U.hosp2, () => q('select count(*)::int n from notifications'))).rows[0].n === 0, 'Other hospital sees no notifications');
 const ov = (await as(U.hosp, () => q('select tracking_no, patient_name, amo_name, sap_doc_no from bill_overview'))).rows;
 ok(ov.length === 2 && ov.some((r) => r.amo_name === 'Dr. Sharma' && r.sap_doc_no === '5100001234'), 'bill_overview joins names & SAP no. for hospital');
 ok((await as(U.hosp2, () => q('select * from bill_overview'))).rows.length === 0, 'bill_overview respects RLS for other hospital');

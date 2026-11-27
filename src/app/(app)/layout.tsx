@@ -8,7 +8,9 @@ export const dynamic = 'force-dynamic';
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const sb = await supabaseServer();
-  const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null);
+  // own unread only (administrators can also read everyone's notices in the monitor view)
+  const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id).is('read_at', null);
   return (
     <div className="min-h-screen">
       <Sidebar role={user.role} name={user.full_name} roleLabel={ROLE_LABEL[user.role]} unread={count ?? 0} signOut={signOut} />

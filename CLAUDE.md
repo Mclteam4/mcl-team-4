@@ -112,3 +112,10 @@
   Not done yet: no email account is connected, so emails are only recorded
   (marked "skipped"). Next: connect a sender account (SMTP settings in Vercel)
   and set real notification emails for the hospital and AMO users.
+- 2026-11-27 (Claude): the 11 demo staff got fictional notification emails
+  (@mcl-demo.example / @hospital-demo.example - never delivered). The
+  Notifications tab now shows each notice like the email: reference number,
+  From -> To, amount, next step; filters "Raised to me", "Raised by me",
+  "Unread"; admins also get "All users (monitor)". 367 past notices were
+  created for the demo bills (supabase/demo/demo-notifications.sql, never
+  emailed). Works: 60 database tests + demo checks pass.
