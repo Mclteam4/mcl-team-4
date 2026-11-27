@@ -10,3 +10,6 @@ supabase/.temp/
 demo-credentials.local.txt
 *.local.txt
 .vercel/
+
+.vercel
+.env*

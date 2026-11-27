@@ -8,6 +8,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
+import readline from 'node:readline';
 
 if (existsSync('.env.local')) {
   for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
@@ -15,8 +16,23 @@ if (existsSync('.env.local')) {
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
   }
 }
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !key) { console.error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local'); process.exit(1); }
+
+// Prompt without echoing what is typed/pasted (for the secret key).
+function askHidden(question) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    let muted = false;
+    rl._writeToOutput = (s) => { if (!muted) rl.output.write(s); };
+    rl.question(question, (answer) => { rl.close(); process.stdout.write('\n'); resolve(answer.trim()); });
+    muted = true;
+  });
+}
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+let key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!url) { console.error('Set NEXT_PUBLIC_SUPABASE_URL (in .env.local or the terminal) and run again.'); process.exit(1); }
+if (!key) key = await askHidden('Paste the Supabase SECRET key (sb_secret_…) and press Enter — it will not be shown: ');
+if (!key) { console.error('No key entered. Nothing was changed.'); process.exit(1); }
 const db = createClient(url, key, { auth: { persistSession: false } });
 const must = (r, what) => { if (r.error) { console.error(`✘ ${what}:`, r.error.message); process.exit(1); } return r.data; };
 const pw = () => randomBytes(9).toString('base64url') + '7a';

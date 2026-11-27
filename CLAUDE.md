@@ -91,3 +91,9 @@
   service_role key, set ONLY in Vercel settings, never in config.js).
   Until then the live site shows "Database connection not configured".
   index.html and config.js are kept but no longer used by the app.
+- 2026-11-27 (Claude): database and hosting connected. Supabase project
+  "Mclteam4's Project" (Tokyo) has all 6 SQL files applied. Vercel
+  production settings added: NEXT_PUBLIC_SUPABASE_URL, APP_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (the last two
+  pasted by the team). Optional, not set yet: CRON_SECRET (backup daily job)
+  and Supabase Auth "Site URL" (needed for password-reset emails).

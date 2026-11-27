@@ -21,7 +21,7 @@ Tests: `npm test` (13 engine tests) · `npm run test:sql` (46 workflow, RLS and 
 ## Deploying (Vercel + Supabase)
 
 1. **Supabase**: create a project (region **Mumbai, ap-south-1**). Database → Extensions: enable **pg_cron** and **pg_trgm**.
-2. SQL Editor: run the five files in `supabase/migrations/` in order (0001 → 0005).
+2. SQL Editor: run the six files in `supabase/migrations/` in order (0001 → 0006).
 3. Authentication → URL configuration: set Site URL to the Vercel URL and add `<site>/auth/callback` to the redirect URLs.
 4. **Vercel** → Project → Settings → Environment Variables:
 
