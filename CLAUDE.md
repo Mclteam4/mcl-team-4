@@ -97,3 +97,11 @@
   NEXT_PUBLIC_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY (the last two
   pasted by the team). Optional, not set yet: CRON_SECRET (backup daily job)
   and Supabase Auth "Site URL" (needed for password-reset emails).
+- 2026-11-27 (Claude): sign-in by user ID added. First administrator created
+  by the team on /setup-admin (user ID "admin"; page now locked). Fictional
+  demo data loaded (supabase/demo/demo-data.sql): 5 hospitals, 36 bills at
+  every stage, incl. Rajesh Kumar's Rs 2,50,000 bill. Demo staff (dr.sharma,
+  abc.billing, finance.demo...) have NO password yet.
+  KNOWN PROBLEM: the Supabase secret key was exposed in a terminal/chat and
+  must be replaced (new key in Supabase -> Vercel SUPABASE_SERVICE_ROLE_KEY
+  -> redeploy -> delete old key) before any real data is entered.
