@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
 import { Card, PageHeader, TableWrap, Badge, Field } from '@/components/ui';
 import { ActionForm, SubmitButton } from '@/components/ActionForm';
-import { createUser, setUserActive, createDelegation, createArea } from '../actions';
+import { createUser, setUserActive, createDelegation, createArea, setNotifyEmail } from '../actions';
 
 export const metadata = { title: 'Users' };
 
@@ -48,11 +48,23 @@ export default async function UsersPage() {
       </div>
 
       <Card title={`All users (${users?.length ?? 0})`}>
+        <p className="mb-3 text-sm text-slate-500">
+          Every bill movement is emailed to <b>both sides</b> (the office that raised it and the office it is raised to), quoting the bill&apos;s reference number.
+          Mail goes to the <b>notification email</b>; if it is empty, to the login email. Demo addresses ending in <span className="font-mono">.example</span> never receive mail.
+        </p>
         <TableWrap><table>
-          <thead><tr><th>Name</th><th>User ID</th><th>Email</th><th>Role</th><th>Hospital / Area</th><th>Designation</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>User ID</th><th>Login email</th><th>Notification email (bill updates)</th><th>Role</th><th>Hospital / Area</th><th>Designation</th><th>Status</th><th></th></tr></thead>
           <tbody>{users?.map((u) => (
             <tr key={u.id}>
-              <td className="font-medium">{u.full_name}</td><td className="font-mono text-xs">{u.login_id ?? '—'}</td><td>{u.email}</td><td><Badge tone="navy">{ROLE_LABEL[u.role as Role]}</Badge></td>
+              <td className="font-medium">{u.full_name}</td><td className="font-mono text-xs">{u.login_id ?? '—'}</td>
+              <td className="text-xs">{u.email}</td>
+              <td className="min-w-72">
+                <ActionForm action={setNotifyEmail} className="flex flex-wrap gap-1">
+                  <input type="hidden" name="id" value={u.id} />
+                  <input name="notify_email" type="email" defaultValue={u.notify_email ?? ''} placeholder={u.email} aria-label={`Notification email for ${u.full_name}`} className="min-w-0 flex-1 text-xs" />
+                  <SubmitButton className="btn-sm">Save</SubmitButton>
+                </ActionForm>
+              </td><td><Badge tone="navy">{ROLE_LABEL[u.role as Role]}</Badge></td>
               <td>{u.hospitals?.name ?? u.areas?.name ?? '—'}</td><td>{u.designation ?? '—'}</td>
               <td><Badge tone={u.active ? 'green' : 'red'}>{u.active ? 'Active' : 'Disabled'}</Badge></td>
               <td><form action={setUserActive}><input type="hidden" name="id" value={u.id} /><input type="hidden" name="active" value={String(!u.active)} />

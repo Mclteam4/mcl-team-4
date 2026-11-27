@@ -123,7 +123,14 @@ await as(U.hosp, () => q(`insert into supporting_documents (bill_id, doc_type, f
   values ('${BILL}', 'FINAL_BILL', 'bill.pdf', 'bills/${BILL}/bill.pdf', 'application/pdf', 1000, '${U.hosp}')`));
 await as(U.hosp, () => q(`select rpc_submit_bill('${BILL}')`));
 ok((await one(`select status from hospital_bills where id='${BILL}'`)).status === 'SUBMITTED', 'Bill submitted');
-ok((await one(`select count(*)::int n from notifications where user_id='${U.amo}' and event='BILL_RECEIVED'`)).n === 1, 'AMO notified');
+const nSub = (await q(`select user_id, title, details from notifications where event = 'BILL_SUBMITTED'`)).rows;
+const toAmo = nSub.find((n) => n.user_id === U.amo), toHosp = nSub.find((n) => n.user_id === U.hosp);
+ok(nSub.length === 2 && toAmo && toHosp, 'Bill submitted: BOTH hospital and AMO notified (one message each)');
+ok(toAmo.title.includes(tn.tracking_no) && toAmo.details.reference === tn.tracking_no, `Message quotes the reference number ${tn.tracking_no}`);
+ok(toHosp.details.your_side === 'raised_by' && toAmo.details.your_side === 'raised_to'
+   && toAmo.details.raised_by_party === 'ABC Multispeciality Hospital' && toAmo.details.raised_to === 'Dr. Sharma (AMO, Talcher Area)',
+   `Raised by "${toAmo.details.raised_by_party}" → raised to "${toAmo.details.raised_to}"`);
+ok((await one(`select count(*)::int n from notifications where user_id = '${U.hosp2}'`)).n === 0, 'Other hospital receives nothing');
 await expectError('Hospital cannot edit items after submission', () => as(U.hosp, async () => {
   const r = await q(`update hospital_bill_items set rate_claimed = 1 where bill_id='${BILL}'`);
   if (r.affectedRows === 0) throw new Error('row-level security: 0 rows updated');
@@ -194,6 +201,15 @@ await as(U.fin, () => q(`select rpc_finance_action('${BILL}', 'PROCESS', '{"vouc
 await as(U.fin, () => q(`select rpc_finance_action('${BILL}', 'COMPLETE', '{"payment_date":"2026-11-27"}')`));
 ok((await one(`select status from hospital_bills where id='${BILL}'`)).status === 'PAYMENT_COMPLETED', 'Payment Completed');
 ok((await one(`select count(*)::int n from notifications where user_id='${U.hosp}' and event='PAYMENT_COMPLETED'`)).n === 1, 'Hospital notified of payment');
+const flow = (await q(`select event, string_agg(case user_id when '${U.hosp}' then 'H' when '${U.amo}' then 'A' when '${U.fin}' then 'F' else '?' end, '' order by user_id) who
+  from notifications where details ->> 'reference' = '${tn.tracking_no}' group by event order by event`)).rows;
+const who = Object.fromEntries(flow.map((r) => [r.event, [...r.who].sort().join('')]));
+ok(who.VERIFIED_BILL_SENT === 'AAHH' && who.QUERY_RAISED === 'AH',
+   'Verified bill sent (rounds 1 and 2) and query raised: AMO + hospital both notified each time');
+ok(who.FORWARDED_TO_FINANCE === 'AFH', 'Accepted & forwarded: hospital, AMO and Finance notified');
+ok(who.FINANCIALLY_APPROVED === 'AFH' && who.PAYMENT_PROCESSED === 'AFH' && who.PAYMENT_COMPLETED === 'AFH', 'Finance steps: Finance, hospital and AMO notified');
+ok((await one(`select count(*)::int n from notifications where event in ('BILL_RECEIVED','VERIFIED_BILL_RECEIVED','BILL_FORWARDED','PAYMENT_STATUS','CLARIFICATION_RECEIVED')`)).n === 0,
+   'Old one-sided messages switched off (no duplicates)');
 
 // ---------------------------------------------------------------- deemed acceptance job
 console.log('\n7-day deemed acceptance');
@@ -212,6 +228,9 @@ const j1 = (await as(null, () => q('select job_forward_expired_bills() n'))).row
 const j2 = (await as(null, () => q('select job_forward_expired_bills() n'))).rows[0].n;
 const fwd = await one(`select status, forward_mode from hospital_bills where id='60000000-0000-0000-0000-000000000002'`);
 ok(j1 === 1 && j2 === 0 && fwd.status === 'PENDING_FINANCE' && fwd.forward_mode === 'DEEMED', 'Expired bill deemed accepted once; second run no-op');
+const deemed = (await q(`select user_id, details ->> 'raised_by' rb from notifications n join hospital_bills b on b.tracking_no = n.details ->> 'reference'
+  where b.id = '60000000-0000-0000-0000-000000000002' and n.event = 'FORWARDED_TO_FINANCE'`)).rows;
+ok(deemed.length === 3 && deemed.every((d) => d.rb === 'System (automatic)'), 'Deemed acceptance: hospital, AMO and Finance all told (raised by System)');
 ok((await one(`select count(*)::int n from audit_logs where action='DEEMED_ACCEPTED_NO_QUERY' and actor_label='SYSTEM'`)).n === 1, 'System action audited');
 const dlc = await one(`select to_char(app.compute_deadline('2026-11-27 10:00+05:30', 7) at time zone 'Asia/Kolkata', 'YYYY-MM-DD HH24:MI:SS') d`);
 ok(dlc.d === '2026-12-04 23:59:59', `Deadline for sending on 27-Nov 10:00 IST = ${dlc.d} IST`);

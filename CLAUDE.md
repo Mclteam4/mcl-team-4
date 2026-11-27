@@ -105,3 +105,10 @@
   KNOWN PROBLEM: the Supabase secret key was exposed in a terminal/chat and
   must be replaced (new key in Supabase -> Vercel SUPABASE_SERVICE_ROLE_KEY
   -> redeploy -> delete old key) before any real data is entered.
+- 2026-11-27 (Claude): every bill movement now notifies BOTH sides (the office
+  that raised it and the office it is raised to), in-app and by email, quoting
+  the reference number (e.g. MCL/BILL/2026/000037). Admin -> Users has a
+  "Notification email" box per user. Works: 57 database tests pass.
+  Not done yet: no email account is connected, so emails are only recorded
+  (marked "skipped"). Next: connect a sender account (SMTP settings in Vercel)
+  and set real notification emails for the hospital and AMO users.

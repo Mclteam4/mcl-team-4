@@ -44,6 +44,20 @@ export async function createUser(_: ActionResult, fd: FormData): Promise<ActionR
   } catch (e) { return fail(e); }
 }
 
+/** The "connected email" that receives bill notifications (empty = use the login email). */
+export async function setNotifyEmail(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  try {
+    await actionUser('admin');
+    const value = s(fd, 'notify_email').toLowerCase();
+    if (value && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) return { error: 'Enter a valid email address, or leave it empty to use the login email.' };
+    const sb = await supabaseServer();
+    const { error, count } = await sb.from('users').update({ notify_email: value || null }, { count: 'exact' }).eq('id', s(fd, 'id'));
+    if (error) return { error: error.message };
+    if (!count) return { error: 'Not permitted to change this user.' };
+    return done(value ? `Saved. Notices go to ${value}.` : 'Saved. Notices go to the login email.');
+  } catch (e) { return fail(e); }
+}
+
 export async function setUserActive(fd: FormData) {
   await actionUser('admin');
   const id = s(fd, 'id'); const active = s(fd, 'active') === 'true';
