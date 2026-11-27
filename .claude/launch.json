@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mcl-prod",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "start", "-p", "3100"],
+      "port": 3100
+    },
+    {
+      "name": "mcl-ui-check",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:9&& set NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy&& npx next start -p 3101"],
+      "port": 3101
+    }
+  ]
+}

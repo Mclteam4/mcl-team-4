@@ -81,3 +81,13 @@
 ## Progress Log (newest entry at the bottom)
 - Phase 0 (starter): placeholder index.html, config.js without settings and
   this CLAUDE.md. Next: Phase 1 - the table and the entry page.
+- 2026-11-27 (Claude, at the team's request): the team CHOSE to replace the
+  simple tool with the full "MCL Medical Bill Management System" (Next.js +
+  Supabase, 5 logins, 23 tables). This knowingly departs from the Technical
+  and Database rules above. See README.md and docs/ for the design.
+  Works: code builds; 46 database tests and 13 rate-engine tests pass.
+  Not done yet: Supabase project + 5 SQL files (supabase/migrations), and the
+  Vercel environment variables listed in README.md (includes the secret
+  service_role key, set ONLY in Vercel settings, never in config.js).
+  Until then the live site shows "Database connection not configured".
+  index.html and config.js are kept but no longer used by the app.
