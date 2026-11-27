@@ -27,7 +27,8 @@ export default async function UsersPage() {
         <Card title="Create user account" className="xl:col-span-2">
           <ActionForm action={createUser} resetOnSuccess className="grid gap-3 md:grid-cols-3">
             <Field label="Full name"><input name="full_name" required /></Field>
-            <Field label="Email (login)"><input name="email" type="email" required /></Field>
+            <Field label="Email"><input name="email" type="email" required /></Field>
+            <Field label="User ID for sign-in (optional)" hint="e.g. dr.sharma — lowercase"><input name="login_id" autoCapitalize="none" /></Field>
             <Field label="Role"><select name="role" required>{(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></Field>
             <Field label="Hospital (hospital users)"><select name="hospital_id"><option value="">—</option>{hospitals?.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select></Field>
             <Field label="Area (AMOs)"><select name="area_id"><option value="">—</option>{areas?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
@@ -48,10 +49,10 @@ export default async function UsersPage() {
 
       <Card title={`All users (${users?.length ?? 0})`}>
         <TableWrap><table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Hospital / Area</th><th>Designation</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>User ID</th><th>Email</th><th>Role</th><th>Hospital / Area</th><th>Designation</th><th>Status</th><th></th></tr></thead>
           <tbody>{users?.map((u) => (
             <tr key={u.id}>
-              <td className="font-medium">{u.full_name}</td><td>{u.email}</td><td><Badge tone="navy">{ROLE_LABEL[u.role as Role]}</Badge></td>
+              <td className="font-medium">{u.full_name}</td><td className="font-mono text-xs">{u.login_id ?? '—'}</td><td>{u.email}</td><td><Badge tone="navy">{ROLE_LABEL[u.role as Role]}</Badge></td>
               <td>{u.hospitals?.name ?? u.areas?.name ?? '—'}</td><td>{u.designation ?? '—'}</td>
               <td><Badge tone={u.active ? 'green' : 'red'}>{u.active ? 'Active' : 'Disabled'}</Badge></td>
               <td><form action={setUserActive}><input type="hidden" name="id" value={u.id} /><input type="hidden" name="active" value={String(!u.active)} />

@@ -36,8 +36,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="mt-1 text-sm text-slate-500">Hospitals, AMOs, Finance and Management users</p>
           <ActionForm action={signIn} className="mt-6 space-y-4">
             <input type="hidden" name="next" value={next ?? '/'} />
-            <div className="flex flex-col gap-1"><label htmlFor="email">Email</label>
-              <input id="email" name="email" type="email" autoComplete="username" required /></div>
+            <div className="flex flex-col gap-1"><label htmlFor="login">User ID or email</label>
+              <input id="login" name="login" type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required /></div>
             <div className="flex flex-col gap-1"><label htmlFor="password">Password</label>
               <input id="password" name="password" type="password" autoComplete="current-password" required /></div>
             <SubmitButton className="btn-primary w-full">Sign in</SubmitButton>

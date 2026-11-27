@@ -19,9 +19,12 @@ export async function createUser(_: ActionResult, fd: FormData): Promise<ActionR
       email: z.email(), full_name: z.string().min(2), role: z.enum(['admin', 'hospital', 'amo', 'finance', 'management']),
       password: z.string().min(10, 'Temporary password must be at least 10 characters'),
       hospital_id: z.string().optional(), area_id: z.string().optional(), designation: z.string().optional(), employee_code: z.string().optional(),
+      login_id: z.string().optional(),
     }).safeParse(Object.fromEntries(fd));
     if (!p.success) return { error: p.error.issues.map((i) => i.message).join('; ') };
     const d = p.data;
+    const loginId = (d.login_id ?? '').trim().toLowerCase() || null;
+    if (loginId && !/^[a-z0-9][a-z0-9._-]{2,39}$/.test(loginId)) return { error: 'User ID: 3–40 lowercase letters or numbers (dot, dash, underscore allowed).' };
     if (d.role === 'hospital' && !d.hospital_id) return { error: 'Select the hospital for a hospital user.' };
     if (d.role === 'amo' && !d.area_id) return { error: 'Select the Area for an AMO.' };
     const admin = supabaseAdmin();
@@ -30,9 +33,12 @@ export async function createUser(_: ActionResult, fd: FormData): Promise<ActionR
     const { error: e2 } = await admin.from('users').insert({
       id: created.user.id, email: d.email.toLowerCase(), full_name: d.full_name, role: d.role,
       hospital_id: d.role === 'hospital' ? d.hospital_id : null, area_id: d.area_id || null,
-      designation: d.designation || null, employee_code: d.employee_code || null,
+      designation: d.designation || null, employee_code: d.employee_code || null, login_id: loginId,
     });
-    if (e2) { await admin.auth.admin.deleteUser(created.user.id); return { error: e2.message }; }
+    if (e2) {
+      await admin.auth.admin.deleteUser(created.user.id);
+      return { error: e2.code === '23505' && e2.message.includes('login_id') ? `User ID "${loginId}" is already taken.` : e2.message };
+    }
     await admin.from('audit_logs').insert({ actor_label: 'Administrator', entity: 'users', entity_id: created.user.id, action: 'USER_CREATED', new_data: { email: d.email, role: d.role } });
     return done(`User ${d.email} created. Share the temporary password securely; they can change it via “Forgot password”.`);
   } catch (e) { return fail(e); }

@@ -17,22 +17,34 @@ if (existsSync('.env.local')) {
   }
 }
 
-// Prompt without echoing what is typed/pasted (for the secret key).
-function askHidden(question) {
+// Prompt for a secret: shows * instead of the characters typed/pasted.
+function askSecret(question) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
     let muted = false;
-    rl._writeToOutput = (s) => { if (!muted) rl.output.write(s); };
-    rl.question(question, (answer) => { rl.close(); process.stdout.write('\n'); resolve(answer.trim()); });
+    rl._writeToOutput = (s) => rl.output.write(muted ? (s.includes('\n') || s.includes('\r') ? '' : '*') : s);
+    rl.question(question, (answer) => { rl.close(); process.stdout.write('\n'); resolve(answer); });
     muted = true;
   });
+}
+// Keeps asking (empty Enter no longer quits, so a later paste cannot fall through to PowerShell).
+async function getSecretKey() {
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const raw = await askSecret(attempt === 1
+      ? 'Paste the Supabase SECRET key (sb_secret_...) and press Enter. You will see * instead of the key: '
+      : 'That was empty or not a secret key. Paste the key that starts with sb_secret_ and press Enter: ');
+    const k = raw.replace(/\x1b\[20[01]~/g, '').trim();
+    if (/^(sb_secret_|eyJ)/.test(k)) return k;
+  }
+  return null;
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 let key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url) { console.error('Set NEXT_PUBLIC_SUPABASE_URL (in .env.local or the terminal) and run again.'); process.exit(1); }
-if (!key) key = await askHidden('Paste the Supabase SECRET key (sb_secret_…) and press Enter — it will not be shown: ');
-if (!key) { console.error('No key entered. Nothing was changed.'); process.exit(1); }
+if (!key) key = await getSecretKey();
+if (!key) { console.error('No valid key entered. Nothing was changed.'); process.exit(1); }
+console.log('✔ Key received. Creating demo data (about 20 seconds)...');
 const db = createClient(url, key, { auth: { persistSession: false } });
 const must = (r, what) => { if (r.error) { console.error(`✘ ${what}:`, r.error.message); process.exit(1); } return r.data; };
 const pw = () => randomBytes(9).toString('base64url') + '7a';
@@ -55,26 +67,26 @@ const mou = mouExisting ?? must(await db.from('hospital_mou_details').insert({
 
 // ------------------------------------------------------------------ users
 const PEOPLE = [
-  { key: 'admin', email: 'admin.demo@mcl-demo.example', full_name: 'MCL System Administrator', role: 'admin' },
-  { key: 'amo', email: 'dr.sharma@mcl-demo.example', full_name: 'Dr. Sharma', role: 'amo', area_id: area.id, designation: 'Area Medical Officer, Talcher' },
-  { key: 'amo2', email: 'dr.mishra@mcl-demo.example', full_name: 'Dr. Mishra', role: 'amo', area_id: area.id, designation: 'Area Medical Officer' },
-  { key: 'hospital', email: 'billing@abc-demo.example', full_name: 'ABC Hospital Billing Desk', role: 'hospital', hospital_id: abc.id },
-  { key: 'hospital2', email: 'billing@xyz-demo.example', full_name: 'XYZ Billing Desk', role: 'hospital', hospital_id: xyz.id },
-  { key: 'finance', email: 'finance.demo@mcl-demo.example', full_name: 'Finance Officer (Medical Bills)', role: 'finance' },
-  { key: 'management', email: 'gm.medical@mcl-demo.example', full_name: 'GM (Medical Services)', role: 'management' },
+  { key: 'admin', login_id: 'admin.demo', email: 'admin.demo@mcl-demo.example', full_name: 'MCL System Administrator', role: 'admin' },
+  { key: 'amo', login_id: 'dr.sharma', email: 'dr.sharma@mcl-demo.example', full_name: 'Dr. Sharma', role: 'amo', area_id: area.id, designation: 'Area Medical Officer, Talcher' },
+  { key: 'amo2', login_id: 'dr.mishra', email: 'dr.mishra@mcl-demo.example', full_name: 'Dr. Mishra', role: 'amo', area_id: area.id, designation: 'Area Medical Officer' },
+  { key: 'hospital', login_id: 'abc.billing', email: 'billing@abc-demo.example', full_name: 'ABC Hospital Billing Desk', role: 'hospital', hospital_id: abc.id },
+  { key: 'hospital2', login_id: 'xyz.billing', email: 'billing@xyz-demo.example', full_name: 'XYZ Billing Desk', role: 'hospital', hospital_id: xyz.id },
+  { key: 'finance', login_id: 'finance.demo', email: 'finance.demo@mcl-demo.example', full_name: 'Finance Officer (Medical Bills)', role: 'finance' },
+  { key: 'management', login_id: 'gm.medical', email: 'gm.medical@mcl-demo.example', full_name: 'GM (Medical Services)', role: 'management' },
 ];
 const ids = {}; const creds = [];
 const { data: existingUsers } = await db.from('users').select('id, email');
 for (const p of PEOPLE) {
   const found = existingUsers?.find((u) => u.email === p.email);
-  if (found) { ids[p.key] = found.id; creds.push(`${p.role.padEnd(11)} ${p.email}  (already existed — password unchanged)`); continue; }
+  if (found) { ids[p.key] = found.id; creds.push(`${p.role.padEnd(11)} user ID: ${p.login_id.padEnd(13)} (already existed — password unchanged)`); continue; }
   const password = pw();
   const { data, error } = await db.auth.admin.createUser({ email: p.email, password, email_confirm: true });
   if (error) { console.error('✘ create user', p.email, error.message); process.exit(1); }
   ids[p.key] = data.user.id;
   const { key: _k, ...profile } = p;
   must(await db.from('users').insert({ id: data.user.id, ...profile }), `profile ${p.email}`);
-  creds.push(`${p.role.padEnd(11)} ${p.email}  ${password}`);
+  creds.push(`${p.role.padEnd(11)} user ID: ${p.login_id.padEnd(13)} password: ${password}`);
 }
 
 // ------------------------------------------------------------------ DEMO rate schedules (NOT official CGHS values)
@@ -168,5 +180,53 @@ if (!billEx) {
 
 writeFileSync('demo-credentials.local.txt',
   `MCL Medical Bill Management System — DEMO logins (fictional users; delete before production)\n` +
+  `Sign in with the user ID (or the email) and the password below.\n` +
   `Generated ${new Date().toISOString()}\n\n${creds.join('\n')}\n`);
-console.log('✔ Demo data ready. Logins written to demo-credentials.local.txt (do not commit or share publicly).');
+console.log('✔ Demo data ready. Demo logins written to demo-credentials.local.txt (do not commit or share publicly).');
+
+// ------------------------------------------------------------------ optional: your own personal login
+// The person running this types their own user ID, email and password; the password is
+// shown only as * and is never printed or saved anywhere.
+const askLine = (q) => new Promise((resolve) => {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  rl.question(q, (a) => { rl.close(); resolve(a.replace(/\x1b\[20[01]~/g, '').trim()); });
+});
+const LOGIN_ID = /^[a-z0-9][a-z0-9._-]{2,39}$/;
+console.log('\nOptional: create YOUR OWN login now. You choose the password; it is never shown or saved.');
+let myId = (await askLine('Your user ID, for example your first name (or just press Enter to skip): ')).toLowerCase();
+while (myId && !LOGIN_ID.test(myId)) {
+  myId = (await askLine('User ID must be 3-40 lowercase letters or numbers (dot, dash, underscore allowed). Try again, or Enter to skip: ')).toLowerCase();
+}
+if (myId) {
+  let myEmail = '';
+  while (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(myEmail)) myEmail = (await askLine('Your email address (used if you forget the password): ')).toLowerCase();
+  const myName = (await askLine('Your name as it should appear in the app: ')) || myId;
+  const ROLES = { 1: ['admin', 'Administrator'], 2: ['amo', 'AMO / Doctor'], 3: ['hospital', 'Hospital (ABC)'], 4: ['finance', 'Finance'], 5: ['management', 'Management'] };
+  const roleKey = (await askLine('Your role: 1 Administrator, 2 AMO, 3 Hospital, 4 Finance, 5 Management. Type a number [1]: ')) || '1';
+  const [myRole, myRoleLabel] = ROLES[roleKey] ?? ROLES[1];
+  let pw;
+  for (;;) {
+    const a = (await askSecret('Choose your password (at least 10 characters, letters AND numbers): ')).replace(/\x1b\[20[01]~/g, '');
+    const b = (await askSecret('Type the same password again: ')).replace(/\x1b\[20[01]~/g, '');
+    if (a !== b) { console.log('The two passwords did not match. Please try again.'); continue; }
+    if (a.length < 10 || !/[A-Za-z]/.test(a) || !/\d/.test(a)) { console.log('Too weak: use at least 10 characters with both letters and numbers. Please try again.'); continue; }
+    pw = a; break;
+  }
+  let uid;
+  const created = await db.auth.admin.createUser({ email: myEmail, password: pw, email_confirm: true });
+  if (created.error) {
+    // already registered: set the newly chosen password on that account
+    const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const existing = list?.users?.find((u) => u.email === myEmail);
+    if (!existing) { console.error('✘ Could not create your login:', created.error.message); process.exit(1); }
+    uid = existing.id;
+    must(await db.auth.admin.updateUserById(uid, { password: pw }), 'set your password');
+  } else uid = created.data.user.id;
+  const { data: clash } = await db.from('users').select('id').eq('login_id', myId).neq('id', uid).maybeSingle();
+  if (clash) { console.error(`✘ The user ID "${myId}" is already used by another account. Run again with a different ID.`); process.exit(1); }
+  must(await db.from('users').upsert({
+    id: uid, email: myEmail, full_name: myName, role: myRole, login_id: myId, active: true,
+    hospital_id: myRole === 'hospital' ? abc.id : null, area_id: myRole === 'amo' ? area.id : null,
+  }, { onConflict: 'id' }), 'your profile');
+  console.log(`✔ Your login is ready: user ID "${myId}" (${myRoleLabel}). Sign in at https://mcl-team-4-psi.vercel.app with your password.`);
+}

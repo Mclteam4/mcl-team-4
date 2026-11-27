@@ -230,6 +230,10 @@ const refNo = await as(U.amo, () => q(`insert into patient_referrals (patient_id
   values ('31000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001', '${U.amo}', '10000000-0000-0000-0000-000000000001',
   '20000000-0000-0000-0000-000000000001', 'Test', 'GENERAL') returning referral_no`));
 ok(/^MCL\/REF\/\d{4}\/\d{4}$/.test(refNo.rows[0].referral_no), `Referral number auto-assigned: ${refNo.rows[0].referral_no}`);
+await db.exec(`update users set login_id = 'dr.sharma' where id = '${U.amo}'`);
+ok((await one(`select email from users where login_id = 'dr.sharma'`)).email === 'amo@demo.mcl', 'User ID maps to login email');
+await expectError('User ID must be lowercase letters/numbers', () => db.exec(`update users set login_id = 'Bad ID!' where id = '${U.fin}'`), /users_login_id_format/);
+await expectError('User IDs are unique', () => db.exec(`update users set login_id = 'dr.sharma' where id = '${U.fin}'`), /duplicate key/);
 await expectError('Audit log is append-only', () => as(U.admin, () => q('delete from audit_logs')), /permission denied/);
 
 console.log(`\n${passed} passed, ${failed} failed`);
